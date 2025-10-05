@@ -762,3 +762,325 @@ func BenchmarkUnmarshalBinary(b *testing.B) {
 		_ = d2.UnmarshalBinary(data)
 	}
 }
+
+func TestNewWithJokers(t *testing.T) {
+	d := NewWithJokers()
+
+	if d == nil {
+		t.Fatal("NewWithJokers() returned nil")
+	}
+
+	if d.Len() != 54 {
+		t.Errorf("NewWithJokers deck should have 54 cards, got %d", d.Len())
+	}
+
+	// Check that we have 52 regular cards + 2 jokers
+	regularCards := 0
+	redJokers := 0
+	blackJokers := 0
+
+	allCards, _ := d.PeekN(54)
+	for _, c := range allCards {
+		rank := c.Rank()
+
+		if rank == RedJoker {
+			redJokers++
+		} else if rank == BlackJoker {
+			blackJokers++
+		} else if rank >= Ace && rank <= King {
+			regularCards++
+		}
+	}
+
+	if regularCards != 52 {
+		t.Errorf("Expected 52 regular cards, got %d", regularCards)
+	}
+	if redJokers != 1 {
+		t.Errorf("Expected 1 red joker, got %d", redJokers)
+	}
+	if blackJokers != 1 {
+		t.Errorf("Expected 1 black joker, got %d", blackJokers)
+	}
+}
+
+func TestNewMultipleWithJokers(t *testing.T) {
+	tests := []struct {
+		name      string
+		count     int
+		wantCards int
+		wantErr   bool
+	}{
+		{"single deck", 1, 54, false},
+		{"two decks", 2, 108, false},
+		{"five decks", 5, 270, false},
+		{"zero decks", 0, 0, true},
+		{"negative decks", -1, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewMultipleWithJokers(tt.count)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if d.Len() != tt.wantCards {
+				t.Errorf("expected %d cards, got %d", tt.wantCards, d.Len())
+			}
+		})
+	}
+}
+
+func TestAddJoker(t *testing.T) {
+	d := New() // Start with 52 cards
+
+	if d.Len() != 52 {
+		t.Fatalf("Expected 52 cards initially, got %d", d.Len())
+	}
+
+	// Add red joker
+	d.AddJoker(RedJoker)
+	if d.Len() != 53 {
+		t.Errorf("Expected 53 cards after adding red joker, got %d", d.Len())
+	}
+
+	// Add black joker
+	d.AddJoker(BlackJoker)
+	if d.Len() != 54 {
+		t.Errorf("Expected 54 cards after adding black joker, got %d", d.Len())
+	}
+
+	// Verify the jokers were added
+	cards, _ := d.PeekN(54)
+	lastTwo := cards[52:]
+
+	if lastTwo[0].Rank() != RedJoker {
+		t.Errorf("Expected red joker at position 52, got rank %d", lastTwo[0].Rank())
+	}
+	if lastTwo[1].Rank() != BlackJoker {
+		t.Errorf("Expected black joker at position 53, got rank %d", lastTwo[1].Rank())
+	}
+}
+
+func TestIsJoker(t *testing.T) {
+	tests := []struct {
+		name    string
+		card    Card
+		isJoker bool
+	}{
+		{"Ace of Spades", NewCard(Ace, Spades), false},
+		{"King of Hearts", NewCard(King, Hearts), false},
+		{"Queen of Clubs", NewCard(Queen, Clubs), false},
+		{"Red Joker", NewRedJoker(), true},
+		{"Black Joker", NewBlackJoker(), true},
+		{"Red Joker via NewCard", NewCard(RedJoker, Hearts), true},
+		{"Black Joker via NewCard", NewCard(BlackJoker, Spades), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.card.IsJoker(); got != tt.isJoker {
+				t.Errorf("IsJoker() = %v, want %v", got, tt.isJoker)
+			}
+		})
+	}
+}
+
+func TestJokerString(t *testing.T) {
+	redJoker := NewRedJoker()
+	blackJoker := NewBlackJoker()
+
+	// Test long format (String method)
+	if redJoker.String() != "Joker (Red)" {
+		t.Errorf("Red joker String() = %q, want %q", redJoker.String(), "Joker (Red)")
+	}
+	if blackJoker.String() != "Joker (Black)" {
+		t.Errorf("Black joker String() = %q, want %q", blackJoker.String(), "Joker (Black)")
+	}
+
+	// Test short format (ShortString method)
+	if redJoker.ShortString() != "JKR" {
+		t.Errorf("Red joker ShortString() = %q, want %q", redJoker.ShortString(), "JKR")
+	}
+	if blackJoker.ShortString() != "JKB" {
+		t.Errorf("Black joker ShortString() = %q, want %q", blackJoker.ShortString(), "JKB")
+	}
+}
+
+func TestSortWithJokers(t *testing.T) {
+	d := NewWithJokers()
+	d.ShuffleWithSeed(42) // Shuffle first
+	d.Sort()
+
+	cards, _ := d.PeekN(54)
+
+	// Check that last two cards are jokers
+	if cards[52].Rank() != RedJoker {
+		t.Errorf("Card at position 52 should be Red Joker, got rank %d", cards[52].Rank())
+	}
+	if cards[53].Rank() != BlackJoker {
+		t.Errorf("Card at position 53 should be Black Joker, got rank %d", cards[53].Rank())
+	}
+
+	// Check that King of Clubs is before jokers
+	kingOfClubs := NewCard(King, Clubs)
+	if cards[51] != kingOfClubs {
+		t.Errorf("Card at position 51 should be King of Clubs, got %s", cards[51].String())
+	}
+}
+
+func TestShuffleWithJokers(t *testing.T) {
+	d1 := NewWithJokers()
+	d2 := NewWithJokers()
+
+	// Get initial order
+	cards1Before, _ := d1.PeekN(54)
+	cards2Before, _ := d2.PeekN(54)
+
+	// Verify they start the same
+	for i := 0; i < 54; i++ {
+		if cards1Before[i] != cards2Before[i] {
+			t.Fatalf("Decks should start with same order")
+		}
+	}
+
+	// Shuffle with different seeds
+	d1.ShuffleWithSeed(42)
+	d2.ShuffleWithSeed(99)
+
+	cards1After, _ := d1.PeekN(54)
+	cards2After, _ := d2.PeekN(54)
+
+	// Verify they're different after shuffling
+	differences := 0
+	for i := 0; i < 54; i++ {
+		if cards1After[i] != cards2After[i] {
+			differences++
+		}
+	}
+
+	if differences < 10 {
+		t.Errorf("Expected significant differences after shuffle, got only %d differences", differences)
+	}
+
+	// Verify both still have 54 cards including jokers
+	if d1.Len() != 54 || d2.Len() != 54 {
+		t.Error("Decks should still have 54 cards after shuffle")
+	}
+}
+
+func TestDrawWithJokers(t *testing.T) {
+	d := NewWithJokers()
+
+	// Draw all cards including jokers
+	drawnCards := make([]Card, 0, 54)
+	for i := 0; i < 54; i++ {
+		card, err := d.Draw()
+		if err != nil {
+			t.Fatalf("Error drawing card %d: %v", i, err)
+		}
+		drawnCards = append(drawnCards, card)
+	}
+
+	if d.Len() != 0 {
+		t.Errorf("Deck should be empty after drawing all cards, got %d cards remaining", d.Len())
+	}
+
+	// Verify we drew exactly 2 jokers
+	jokerCount := 0
+	for _, card := range drawnCards {
+		if card.IsJoker() {
+			jokerCount++
+		}
+	}
+
+	if jokerCount != 2 {
+		t.Errorf("Expected to draw 2 jokers, got %d", jokerCount)
+	}
+}
+
+func TestFilterJokers(t *testing.T) {
+	d := NewWithJokers()
+
+	// Filter to get only jokers
+	jokers := d.Filter(func(c Card) bool {
+		return c.IsJoker()
+	})
+
+	if jokers.Len() != 2 {
+		t.Errorf("Expected 2 jokers after filtering, got %d", jokers.Len())
+	}
+
+	// Filter to get only non-jokers
+	regularCards := d.Filter(func(c Card) bool {
+		return !c.IsJoker()
+	})
+
+	if regularCards.Len() != 52 {
+		t.Errorf("Expected 52 regular cards after filtering out jokers, got %d", regularCards.Len())
+	}
+}
+
+func TestMarshalJokers(t *testing.T) {
+	redJoker := NewRedJoker()
+	blackJoker := NewBlackJoker()
+
+	// Red Joker: Hearts (0x01) suit, Rank 14 (0x0E) = 0x4E
+	redJokerByte := byte(redJoker)
+	if redJokerByte != 0x4E {
+		t.Errorf("Red joker should encode as 0x4E, got 0x%02X", redJokerByte)
+	}
+
+	// Black Joker: Spades (0x00) suit, Rank 15 (0x0F) = 0x0F
+	blackJokerByte := byte(blackJoker)
+	if blackJokerByte != 0x0F {
+		t.Errorf("Black joker should encode as 0x0F, got 0x%02X", blackJokerByte)
+	}
+
+	// Test with a deck
+	d := NewWithJokers()
+	data, err := d.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary failed: %v", err)
+	}
+
+	// Check that we have 4 bytes (length) + 54 bytes (cards) = 58 bytes
+	if len(data) != 58 {
+		t.Fatalf("Expected 58 bytes (4 length + 54 cards), got %d", len(data))
+	}
+
+	// In sorted order, jokers come last
+	d.Sort()
+	sortedData, _ := d.MarshalBinary()
+
+	// Skip the 4-byte length prefix
+	if sortedData[56] != 0x4E {
+		t.Errorf("Expected red joker (0x4E) at position 56, got 0x%02X", sortedData[56])
+	}
+	if sortedData[57] != 0x0F {
+		t.Errorf("Expected black joker (0x0F) at position 57, got 0x%02X", sortedData[57])
+	}
+}
+
+func BenchmarkNewWithJokers(b *testing.B) {
+	for b.Loop() {
+		_ = NewWithJokers()
+	}
+}
+
+func BenchmarkSortWithJokers(b *testing.B) {
+	d := NewWithJokers()
+	d.Shuffle()
+	b.ResetTimer()
+	for b.Loop() {
+		d.Sort()
+	}
+}

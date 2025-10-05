@@ -62,11 +62,13 @@ const (
 	Jack
 	Queen
 	King
+	RedJoker
+	BlackJoker
 )
 
 // String returns the string representation of a Rank.
 func (r Rank) String() string {
-	return [...]string{"", "Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King"}[r]
+	return [...]string{"", "Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Joker", "Joker"}[r]
 }
 
 const (
@@ -98,6 +100,16 @@ func NewCard(rank Rank, suit Suit) Card {
 	return Card((suit << suitShift) | (Suit(rank) & rankMask))
 }
 
+// NewRedJoker creates a red joker card (Hearts suit, Rank 14).
+func NewRedJoker() Card {
+	return NewCard(RedJoker, Hearts)
+}
+
+// NewBlackJoker creates a black joker card (Spades suit, Rank 15).
+func NewBlackJoker() Card {
+	return NewCard(BlackJoker, Spades)
+}
+
 // Rank returns the rank of the card.
 func (c Card) Rank() Rank {
 	return Rank(c & rankMask)
@@ -110,12 +122,37 @@ func (c Card) Suit() Suit {
 
 // String returns the string representation of a Card.
 func (c Card) String() string {
+	rank := c.Rank()
+
+	// Handle jokers with color
+	if rank == RedJoker {
+		return "Joker (Red)"
+	}
+	if rank == BlackJoker {
+		return "Joker (Black)"
+	}
+
 	return fmt.Sprintf("%s of %s", c.Rank(), c.Suit())
 }
 
 // ShortString returns a compact representation of a Card.
 func (c Card) ShortString() string {
+	rank := c.Rank()
+
+	// Handle jokers specially
+	if rank == RedJoker {
+		return "JKR"
+	}
+	if rank == BlackJoker {
+		return "JKB"
+	}
+
 	return fmt.Sprintf("%s%s", c.Rank(), c.Suit().Symbol())
+}
+
+// IsJoker returns true if the card is a joker (Rank >= 14).
+func (c Card) IsJoker() bool {
+	return c.Rank() >= RedJoker
 }
 
 // Shuffler is an interface for custom random number generators.
@@ -200,11 +237,47 @@ func NewMultiple(count int) (*Deck, error) {
 
 	cards := make([]Card, 0, 52*count)
 	for i := 0; i < count; i++ {
-		for suit := Spades; suit <= Clubs; suit++ {
-			for rank := Ace; rank <= King; rank++ {
-				cards = append(cards, NewCard(rank, suit))
+		for s := Spades; s <= Clubs; s++ {
+			for r := Ace; r <= King; r++ {
+				cards = append(cards, NewCard(r, s))
 			}
 		}
+	}
+	return &Deck{cards: cards}, nil
+}
+
+// NewWithJokers creates a standard 54-card deck (52 regular cards + 2 jokers).
+// The jokers are added at the end: one red joker (Hearts) and one black joker (Spades).
+func NewWithJokers() *Deck {
+	cards := make([]Card, 0, 54)
+	// Add all 52 regular cards
+	for suit := Spades; suit <= Clubs; suit++ {
+		for rank := Ace; rank <= King; rank++ {
+			cards = append(cards, NewCard(rank, suit))
+		}
+	}
+	// Add jokers
+	cards = append(cards, NewRedJoker(), NewBlackJoker())
+	return &Deck{cards: cards}
+}
+
+// NewMultipleWithJokers creates a deck with multiple 54-card decks (including jokers).
+// Returns an error if count is less than 1.
+func NewMultipleWithJokers(count int) (*Deck, error) {
+	if count < 1 {
+		return nil, fmt.Errorf("count must be at least 1, got %d", count)
+	}
+
+	cards := make([]Card, 0, 54*count)
+	for i := 0; i < count; i++ {
+		// Add all 52 regular cards
+		for s := Spades; s <= Clubs; s++ {
+			for r := Ace; r <= King; r++ {
+				cards = append(cards, NewCard(r, s))
+			}
+		}
+		// Add jokers for this deck
+		cards = append(cards, NewRedJoker(), NewBlackJoker())
 	}
 	return &Deck{cards: cards}, nil
 }
@@ -306,18 +379,45 @@ func (d *Deck) Add(card Card) {
 	d.cards = append(d.cards, card)
 }
 
+// AddJoker adds a joker card to the bottom of the deck.
+// The rank parameter should be RedJoker or BlackJoker.
+func (d *Deck) AddJoker(rank Rank) {
+	var joker Card
+	if rank == RedJoker {
+		joker = NewRedJoker()
+	} else {
+		joker = NewBlackJoker()
+	}
+	d.Add(joker)
+}
+
 // AddToTop adds a card to the top of the deck.
 func (d *Deck) AddToTop(card Card) {
 	d.cards = append([]Card{card}, d.cards...)
 }
 
 // Sort sorts the deck by suit (Spades, Hearts, Diamonds, Clubs) and then by rank.
+// Jokers are sorted to the end of the deck (Red Joker before Black Joker).
 func (d *Deck) Sort() {
 	sort.Slice(d.cards, func(i, j int) bool {
+		iRank, jRank := d.cards[i].Rank(), d.cards[j].Rank()
+		iJoker, jJoker := iRank >= RedJoker, jRank >= RedJoker
+
+		// If one is a joker and the other isn't, non-joker comes first
+		if iJoker != jJoker {
+			return !iJoker // non-joker (false) comes before joker (true)
+		}
+
+		// If both are jokers, sort by rank (Red Joker=14 < Black Joker=15)
+		if iJoker && jJoker {
+			return iRank < jRank
+		}
+
+		// Regular cards: sort by suit, then rank
 		if d.cards[i].Suit() != d.cards[j].Suit() {
 			return d.cards[i].Suit() < d.cards[j].Suit()
 		}
-		return d.cards[i].Rank() < d.cards[j].Rank()
+		return iRank < jRank
 	})
 }
 

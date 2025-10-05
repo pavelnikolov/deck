@@ -271,3 +271,35 @@ func ExampleDeck_network() {
 	// Output: Sending 56 bytes over network
 	// Client received deck with 52 cards
 }
+
+// T018: Example_newWithJokers - demonstrate joker deck creation
+func Example_newWithJokers() {
+	d := deck.NewWithJokers()
+	fmt.Printf("Created a deck with %d cards (52 regular + 2 jokers)\n", d.Len())
+
+	// Sort to see jokers at the end
+	d.Sort()
+	cards := d.Cards()
+
+	fmt.Printf("Last two cards: %s, %s\n", cards[52], cards[53])
+	// Output: Created a deck with 54 cards (52 regular + 2 jokers)
+	// Last two cards: Joker (Red), Joker (Black)
+}
+
+// T019: Example_addJoker - demonstrate flexible joker management
+func Example_addJoker() {
+	d := deck.New() // Start with 52 cards
+	fmt.Printf("Initial: %d cards\n", d.Len())
+
+	// Add a red joker
+	d.AddJoker(deck.RedJoker)
+	fmt.Printf("After adding red joker: %d cards\n", d.Len())
+
+	// Add a black joker
+	d.AddJoker(deck.BlackJoker)
+	fmt.Printf("After adding black joker: %d cards\n", d.Len())
+
+	// Output: Initial: 52 cards
+	// After adding red joker: 53 cards
+	// After adding black joker: 54 cards
+}
