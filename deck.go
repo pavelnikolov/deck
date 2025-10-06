@@ -78,6 +78,12 @@ const (
 	rankMask = 0x3F
 )
 
+const (
+	// maxCardsPerPlayer is the maximum number of cards per player allowed in Deal.
+	// Set to 52 to handle single-player scenarios with a full deck.
+	maxCardsPerPlayer = 52
+)
+
 // Card represents a single playing card using an efficient 1-byte representation.
 // This compact format is ideal for memory efficiency and network transfer.
 // The upper 2 bits represent the suit (0-3), and the lower 6 bits represent the rank (1-13).
@@ -334,6 +340,27 @@ func (d *Deck) Draw() (Card, error) {
 	return card, nil
 }
 
+// MustDraw removes and returns the top card from the deck.
+// It panics if the deck is empty.
+//
+// Use MustDraw when you are certain the deck is not empty, such as after
+// creating a new deck or when you've verified the deck has cards.
+// For runtime error handling, use Draw instead.
+//
+// Example:
+//
+//	d := deck.New()
+//	card := d.MustDraw() // Safe - deck has 52 cards
+//
+// Panics with: "cannot draw from empty deck"
+func (d *Deck) MustDraw() Card {
+	card, err := d.Draw()
+	if err != nil {
+		panic(err.Error())
+	}
+	return card
+}
+
 // DrawN removes and returns n cards from the top of the deck.
 // Returns an error if there are fewer than n cards in the deck.
 func (d *Deck) DrawN(n int) ([]Card, error) {
@@ -348,6 +375,212 @@ func (d *Deck) DrawN(n int) ([]Card, error) {
 	copy(cards, d.cards[:n])
 	d.cards = d.cards[n:]
 	return cards, nil
+}
+
+// MustDrawN removes and returns n cards from the top of the deck.
+// It panics if there are not enough cards or if n is negative.
+//
+// Use MustDrawN when you are certain the deck has at least n cards.
+// For runtime error handling, use DrawN instead.
+//
+// Example:
+//
+//	d := deck.New()
+//	hand := d.MustDrawN(5) // Safe - deck has 52 cards
+//
+// Panics with:
+//   - "cannot draw negative number of cards: X" (if n < 0)
+//   - "not enough cards in deck: have X, need Y" (if insufficient cards)
+func (d *Deck) MustDrawN(n int) []Card {
+	cards, err := d.DrawN(n)
+	if err != nil {
+		panic(err.Error())
+	}
+	return cards
+}
+
+// Deal distributes cards from the deck to multiple players.
+// It removes n * cards from the top of the deck and returns
+// them as a slice of hands (each hand is a slice of Cards).
+// Cards are dealt in sequential blocks: player 1 gets the first cards each,
+// player 2 gets the next cards each, and so on.
+// If validation fails, the deck remains unchanged and an error is returned.
+//
+// Parameters:
+//   - n: number of players to deal to
+//   - cards: number of cards each player receives
+//
+// Returns:
+//   - [][]Card: slice of hands, where each hand is an independent slice of Cards
+//   - error: validation error if parameters are invalid or insufficient cards
+//
+// Example:
+//
+//	d := deck.New()
+//	hands, err := d.Deal(4, 5) // Deal 4 hands of 5 cards each (poker)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// hands[0] contains player 1's 5 cards
+//	// hands[1] contains player 2's 5 cards
+//	// deck now has 32 cards remaining
+func (d *Deck) Deal(n, cards int) ([][]Card, error) {
+	if n < 1 {
+		return nil, fmt.Errorf("number of players must be at least 1")
+	}
+
+	if cards < 1 {
+		return nil, fmt.Errorf("cards per player must be at least 1")
+	}
+
+	if cards > maxCardsPerPlayer {
+		return nil, fmt.Errorf("cards per player exceeds maximum of %d", maxCardsPerPlayer)
+	}
+
+	totalCards := n * cards
+	if totalCards > len(d.cards) {
+		return nil, fmt.Errorf("insufficient cards: need %d, have %d", totalCards, len(d.cards))
+	}
+
+	hands := make([][]Card, n)
+	for i := 0; i < n; i++ {
+		start := i * cards
+		end := start + cards
+
+		hand := make([]Card, cards)
+		copy(hand, d.cards[start:end])
+		hands[i] = hand
+	}
+
+	d.cards = d.cards[totalCards:]
+
+	return hands, nil
+}
+
+// MustDeal distributes cards from the deck to multiple players.
+// It panics if parameters are invalid or if there are insufficient cards.
+//
+// Cards are dealt in sequential blocks: player 1 gets the first cardsPerPlayer
+// cards, player 2 gets the next cardsPerPlayer cards, and so on.
+//
+// Use MustDeal when you are certain the deck has enough cards, such as
+// dealing a bridge game from a fresh 52-card deck. For runtime error
+// handling, use Deal instead.
+//
+// Example:
+//
+//	d := deck.New()
+//	hands := d.MustDeal(4, 13) // Bridge - safe with 52 cards
+//
+// Panics with:
+//   - "number of players must be at least 1" (if numPlayers < 1)
+//   - "cards per player must be at least 1" (if cardsPerPlayer < 1)
+//   - "number of players exceeds maximum of 26" (if numPlayers > 26)
+//   - "cards per player exceeds maximum of 52" (if cardsPerPlayer > 52)
+//   - "insufficient cards: need X, have Y" (if insufficient cards)
+func (d *Deck) MustDeal(numPlayers, cardsPerPlayer int) [][]Card {
+	hands, err := d.Deal(numPlayers, cardsPerPlayer)
+	if err != nil {
+		panic(err.Error())
+	}
+	return hands
+}
+
+// DealHands distributes cards from the deck to multiple players with variable hand sizes.
+// It removes sum(sizes) cards from the top of the deck and returns them as a slice
+// of hands where each hand has a different number of cards as specified in sizes.
+//
+// Cards are dealt in sequential blocks: the first player gets the first sizes[0] cards,
+// the second player gets the next sizes[1] cards, and so on.
+//
+// If validation fails, the deck remains unchanged and an error is returned.
+//
+// Parameters:
+//   - sizes: slice of integers where sizes[i] specifies cards for player i
+//     must be non-empty, all values must be positive and ≤ 52
+//
+// Returns:
+//   - [][]Card: slice of hands where hands[i] contains sizes[i] cards
+//   - error: validation error if parameters are invalid or insufficient cards
+//
+// Example:
+//
+//	d := deck.New()
+//	// Deal casino-style: 3 players get 2 cards, dealer gets 1
+//	hands, err := d.DealHands([]int{2, 2, 2, 1})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// hands[0-2] contain 2 cards each (players)
+//	// hands[3] contains 1 card (dealer)
+//	// deck now has 45 cards remaining (52 - 7 = 45)
+func (d *Deck) DealHands(handSizes []int) ([][]Card, error) {
+	// Validation: non-empty slice
+	if len(handSizes) < 1 {
+		return nil, fmt.Errorf("handSizes must contain at least one hand")
+	}
+
+	// Calculate total cards needed and validate each hand size
+	totalCards := 0
+	for i, handSize := range handSizes {
+		if handSize <= 0 {
+			return nil, fmt.Errorf("hand size must be positive: got %d at index %d", handSize, i)
+		}
+		if handSize > maxCardsPerPlayer {
+			return nil, fmt.Errorf("hand size (%d) at index %d exceeds maximum of %d", handSize, i, maxCardsPerPlayer)
+		}
+		totalCards += handSize
+	}
+
+	// Validation: sufficient cards
+	if totalCards > len(d.cards) {
+		return nil, fmt.Errorf("insufficient cards: need %d, have %d", totalCards, len(d.cards))
+	}
+
+	// Allocate result slice
+	hands := make([][]Card, len(handSizes))
+
+	// Distribute cards in sequential blocks
+	offset := 0
+	for i, handSize := range handSizes {
+		hand := make([]Card, handSize)
+		copy(hand, d.cards[offset:offset+handSize])
+		hands[i] = hand
+		offset += handSize
+	}
+
+	// Remove dealt cards from deck
+	d.cards = d.cards[offset:]
+
+	return hands, nil
+}
+
+// MustDealHands distributes cards from the deck to multiple players with variable hand sizes.
+// It panics if parameters are invalid or if there are insufficient cards.
+//
+// Cards are dealt in sequential blocks: the first player gets the first handSizes[0] cards,
+// the second player gets the next handSizes[1] cards, and so on.
+//
+// Use MustDealHands when you are certain the deck has enough cards and the hand sizes
+// are valid, such as dealing predetermined hands in a game setup. For runtime error
+// handling, use DealHands instead.
+//
+// Example:
+//
+//	d := deck.New()
+//	hands := d.MustDealHands([]int{2, 2, 2, 1}) // Casino-style - safe with 52 cards
+//
+// Panics with:
+//   - "handSizes must contain at least one hand" (if slice is empty)
+//   - "hand size must be positive: got X at index Y" (if handSizes[i] <= 0)
+//   - "hand size (X) at index Y exceeds maximum of 52" (if handSizes[i] > 52)
+//   - "insufficient cards: need X, have Y" (if insufficient cards)
+func (d *Deck) MustDealHands(handSizes []int) [][]Card {
+	hands, err := d.DealHands(handSizes)
+	if err != nil {
+		panic(err.Error())
+	}
+	return hands
 }
 
 // Peek returns the top card without removing it from the deck.
