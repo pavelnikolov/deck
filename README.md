@@ -13,7 +13,7 @@ A high-performance, idiomatic Go package for working with standard playing cards
 - 🎲 **Custom RNG Interface**: Bring-your-own random number generator
 - 📦 **Space Optimized**: 1-byte card representation (vs 16 bytes for struct)
 - 🌐 **Network Efficient**: Binary marshaling for efficient transfer (56 bytes for 52 cards)
-- ✅ **Fully Tested**: 99.0% test coverage with comprehensive examples
+- ✅ **Fully Tested**: 100% test coverage with comprehensive examples
 - ⚡ **High Performance**: Optimized data structures and algorithms
 - 📚 **Well Documented**: Complete godoc documentation with examples
 
@@ -169,14 +169,39 @@ d := deck.New()                    // Standard 52-card deck
 d, _ := deck.NewMultiple(6)        // Multiple decks (e.g., blackjack)
 ```
 
-### Drawing Cards
+### Drawing/dealing Cards
 
 ```go
 card, err := d.Draw()              // Draw one card
 cards, err := d.DrawN(5)           // Draw multiple cards
 card, err := d.Peek()              // Peek without removing
 cards, err := d.PeekN(5)           // Peek multiple cards
+hands, err := d.Deal(4, 5)         // Deal 4 hands of 5 cards each
 ```
+
+### Must* Methods (Panic on Error)
+
+For scenarios where you're certain the deck has sufficient cards, use the Must* variants that panic instead of returning errors:
+
+```go
+d := deck.New()
+
+// No error checking needed for known-safe operations
+card := d.MustDraw()               // Panics if deck is empty
+hand := d.MustDrawN(5)             // Panics if insufficient cards
+hands := d.MustDeal(4, 13)         // Panics if invalid params or insufficient cards
+hands := d.MustDealHands(3, 3, 1)  // Panics if invalid params or insufficient cards
+```
+
+**When to use Must* methods:**
+
+- ✅ Fresh deck with known card count
+- ✅ After verifying deck has sufficient cards  
+- ✅ Deterministic game scenarios (e.g., bridge deal: `MustDeal(4, 13)` with 52 cards)
+- ❌ Unknown deck state at runtime
+- ❌ When graceful error handling is needed
+
+These methods follow Go conventions (like `regexp.MustCompile`) where failure indicates a programming error rather than a runtime condition.
 
 ### Deck Operations
 

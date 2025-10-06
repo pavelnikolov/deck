@@ -9,14 +9,16 @@ import (
 func ExampleNew() {
 	d := deck.New()
 	fmt.Printf("Created a new deck with %d cards\n", d.Len())
-	// Output: Created a new deck with 52 cards
+	// Output:
+	// Created a new deck with 52 cards
 }
 
 func ExampleDeck_Shuffle() {
 	d := deck.New()
 	d.Shuffle()
 	fmt.Println("Deck shuffled")
-	// Output: Deck shuffled
+	// Output:
+	// Deck shuffled
 }
 
 func ExampleDeck_Draw() {
@@ -28,7 +30,8 @@ func ExampleDeck_Draw() {
 	}
 	fmt.Printf("Drew: %s\n", card)
 	fmt.Printf("Cards remaining: %d\n", d.Len())
-	// Output: Drew: Ace of Spades
+	// Output:
+	// Drew: Ace of Spades
 	// Cards remaining: 51
 }
 
@@ -41,7 +44,8 @@ func ExampleDeck_DrawN() {
 	}
 	fmt.Printf("Drew %d cards\n", len(cards))
 	fmt.Printf("Cards remaining: %d\n", d.Len())
-	// Output: Drew 5 cards
+	// Output:
+	// Drew 5 cards
 	// Cards remaining: 47
 }
 
@@ -54,7 +58,8 @@ func ExampleDeck_Peek() {
 	}
 	fmt.Printf("Top card: %s\n", card)
 	fmt.Printf("Cards in deck: %d\n", d.Len())
-	// Output: Top card: Ace of Spades
+	// Output:
+	// Top card: Ace of Spades
 	// Cards in deck: 52
 }
 
@@ -70,7 +75,8 @@ func ExampleDeck_Sort() {
 
 	fmt.Printf("First card: %s\n", first)
 	fmt.Printf("Last card: %s\n", last)
-	// Output: First card: Ace of Spades
+	// Output:
+	// First card: Ace of Spades
 	// Last card: King of Clubs
 }
 
@@ -83,7 +89,8 @@ func ExampleDeck_Filter() {
 	})
 
 	fmt.Printf("Number of Aces: %d\n", aces.Len())
-	// Output: Number of Aces: 4
+	// Output:
+	// Number of Aces: 4
 }
 
 func ExampleDeck_Add() {
@@ -91,7 +98,8 @@ func ExampleDeck_Add() {
 	card := deck.NewCard(deck.Ace, deck.Spades)
 	d.Add(card)
 	fmt.Printf("Deck has %d card(s)\n", d.Len())
-	// Output: Deck has 1 card(s)
+	// Output:
+	// Deck has 1 card(s)
 }
 
 func ExampleNewMultiple() {
@@ -101,19 +109,22 @@ func ExampleNewMultiple() {
 		return
 	}
 	fmt.Printf("Created a deck with %d cards\n", d.Len())
-	// Output: Created a deck with 104 cards
+	// Output:
+	// Created a deck with 104 cards
 }
 
 func ExampleCard_String() {
 	card := deck.NewCard(deck.King, deck.Hearts)
 	fmt.Println(card.String())
-	// Output: King of Hearts
+	// Output:
+	// King of Hearts
 }
 
 func ExampleCard_ShortString() {
 	card := deck.NewCard(deck.Ace, deck.Spades)
 	fmt.Println(card.ShortString())
-	// Output: Ace♠
+	// Output:
+	// Ace♠
 }
 
 func ExampleDeck_ShuffleWithSeed() {
@@ -144,11 +155,10 @@ func ExampleDeck_SecureShuffle() {
 	// Output will vary due to secure randomness
 }
 
-// Example demonstrating custom RNG implementation
 func ExampleDeck_ShuffleWith() {
 	d := deck.New()
 
-	// Use a seeded shuffler for reproducible results
+	// Use a seeded shuffler for reproducible results in tests
 	shuffler := deck.NewSeededShuffler(42)
 	d.ShuffleWith(shuffler)
 
@@ -158,7 +168,6 @@ func ExampleDeck_ShuffleWith() {
 	// Output will be consistent across runs
 }
 
-// Example showing binary marshaling for network transfer
 func ExampleDeck_MarshalBinary() {
 	d := deck.New()
 	d.Shuffle()
@@ -176,7 +185,6 @@ func ExampleDeck_MarshalBinary() {
 	// Size calculated as: 56 bytes
 }
 
-// Example showing binary unmarshaling
 func ExampleDeck_UnmarshalBinary() {
 	// Create and marshal a deck
 	d1 := deck.New()
@@ -195,19 +203,12 @@ func ExampleDeck_UnmarshalBinary() {
 	// Output: Restored deck with 52 cards
 }
 
-// Example: Texas Hold'em poker game setup
 func ExampleDeck_poker() {
 	d := deck.New()
 	d.SecureShuffle() // Use secure shuffle for fair play
 
 	// Deal 2 cards to 4 players
-	players := 4
-	hands := make([][]deck.Card, players)
-
-	for i := 0; i < players; i++ {
-		hand, _ := d.DrawN(2)
-		hands[i] = hand
-	}
+	hands, _ := d.Deal(4, 2)
 
 	// Burn a card
 	_, _ = d.Draw()
@@ -215,7 +216,7 @@ func ExampleDeck_poker() {
 	// Deal the flop (3 community cards)
 	flop, _ := d.DrawN(3)
 
-	fmt.Printf("Players: %d\n", players)
+	fmt.Printf("Players: %d\n", len(hands))
 	fmt.Printf("Flop: %d cards\n", len(flop))
 	fmt.Printf("Cards remaining: %d\n", d.Len())
 	// Output: Players: 4
@@ -239,7 +240,6 @@ func ExampleDeck_blackjack() {
 	// Output will vary based on shuffle
 }
 
-// Example: Filtering cards for a specific game
 func ExampleDeck_Filter_suit() {
 	d := deck.New()
 
@@ -272,7 +272,6 @@ func ExampleDeck_network() {
 	// Client received deck with 52 cards
 }
 
-// T018: Example_newWithJokers - demonstrate joker deck creation
 func Example_newWithJokers() {
 	d := deck.NewWithJokers()
 	fmt.Printf("Created a deck with %d cards (52 regular + 2 jokers)\n", d.Len())
@@ -286,7 +285,6 @@ func Example_newWithJokers() {
 	// Last two cards: Joker (Red), Joker (Black)
 }
 
-// T019: Example_addJoker - demonstrate flexible joker management
 func Example_addJoker() {
 	d := deck.New() // Start with 52 cards
 	fmt.Printf("Initial: %d cards\n", d.Len())
@@ -302,4 +300,119 @@ func Example_addJoker() {
 	// Output: Initial: 52 cards
 	// After adding red joker: 53 cards
 	// After adding black joker: 54 cards
+}
+
+func ExampleDeck_Deal() {
+	d := deck.New()
+	// Deal 4 hands of 5 cards each (poker game)
+	hands, err := d.Deal(4, 5)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Printf("Dealt %d hands with %d cards each\n", len(hands), len(hands[0]))
+	fmt.Printf("Cards remaining in deck: %d\n", d.Len())
+	// Output:
+	// Dealt 4 hands with 5 cards each
+	// Cards remaining in deck: 32
+}
+
+func ExampleDeck_MustDraw() {
+	d := deck.New()
+	card := d.MustDraw()
+	fmt.Printf("Drew: %s\n", card)
+	fmt.Printf("Cards remaining: %d\n", d.Len())
+	// Output:
+	// Drew: Ace of Spades
+	// Cards remaining: 51
+}
+
+func ExampleDeck_MustDrawN() {
+	d := deck.New()
+	hand := d.MustDrawN(5)
+	fmt.Printf("Drew %d cards\n", len(hand))
+	fmt.Printf("Cards remaining: %d\n", d.Len())
+	// Output:
+	// Drew 5 cards
+	// Cards remaining: 47
+}
+
+func ExampleDeck_MustDeal() {
+	d := deck.New()
+	hands := d.MustDeal(4, 13) // Bridge game
+	fmt.Printf("Dealt %d hands with %d cards each\n", len(hands), len(hands[0]))
+	fmt.Printf("Cards remaining in deck: %d\n", d.Len())
+	// Output:
+	// Dealt 4 hands with 13 cards each
+	// Cards remaining in deck: 0
+}
+
+func ExampleDeck_DealHands() {
+	d := deck.New()
+
+	// Deal casino-style: 3 players get 2 cards, dealer gets 1
+	hands, err := d.DealHands([]int{2, 2, 2, 1})
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Printf("Dealt %d hands\n", len(hands))
+	for i, hand := range hands {
+		cardWord := "cards"
+		if len(hand) == 1 {
+			cardWord = "card"
+		}
+		fmt.Printf("Hand %d: %d %s\n", i+1, len(hand), cardWord)
+	}
+	fmt.Printf("Remaining: %d cards\n", d.Len())
+	// Output:
+	// Dealt 4 hands
+	// Hand 1: 2 cards
+	// Hand 2: 2 cards
+	// Hand 3: 2 cards
+	// Hand 4: 1 card
+	// Remaining: 45 cards
+}
+
+func ExampleDeck_DealHands_progressive() {
+	d := deck.New()
+
+	// Progressive game: increasing hand sizes
+	hands, err := d.DealHands([]int{2, 3, 5})
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	for i, hand := range hands {
+		fmt.Printf("Player %d: %d cards\n", i+1, len(hand))
+	}
+	// Output:
+	// Player 1: 2 cards
+	// Player 2: 3 cards
+	// Player 3: 5 cards
+}
+
+// ExampleDeck_MustDealHands demonstrates dealing different hand sizes
+// to multiple players using the panic-based API. Use MustDealHands when
+// hand sizes are statically known and validation errors indicate bugs.
+func ExampleDeck_MustDealHands() {
+	d := deck.New()
+
+	// Deal casino-style: dealer gets 2 cards, each player gets 2 cards
+	hands := d.MustDealHands([]int{2, 2, 2, 2})
+
+	fmt.Printf("Dealer: %d cards\n", len(hands[0]))
+	for i := 1; i < len(hands); i++ {
+		fmt.Printf("Player %d: %d cards\n", i, len(hands[i]))
+	}
+	fmt.Printf("Remaining: %d cards\n", d.Len())
+	// Output:
+	// Dealer: 2 cards
+	// Player 1: 2 cards
+	// Player 2: 2 cards
+	// Player 3: 2 cards
+	// Remaining: 44 cards
 }
